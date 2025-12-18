@@ -29,7 +29,7 @@ def home(request):
                 'text': text[:200] + '...' if len(text) > 200 else text,
                 'is_offensive': analysis['is_offensive'],
                 'severity': analysis['severity'],
-                'confidence_score': analysis['confidence_score'],
+                'confidence_score': int(analysis['confidence_score'] * 100),
                 'categories': analysis['categories'],
                 'flagged_terms': analysis['flagged_terms'],
                 'details': analysis.get('analysis_details', {}),
@@ -42,7 +42,18 @@ def home(request):
 
 
 def history(request):
-    results = AnalysisResult.objects.all()[:50]
+    results_queryset = AnalysisResult.objects.all()[:50]
+    results = []
+    for r in results_queryset:
+        results.append({
+            'text': r.text,
+            'is_offensive': r.is_offensive,
+            'severity': r.severity,
+            'confidence_score': int(r.confidence_score * 100),
+            'categories': r.categories,
+            'flagged_terms': r.flagged_terms,
+            'analyzed_at': r.analyzed_at,
+        })
     return render(request, 'detector/history.html', {
         'results': results,
     })

@@ -48,9 +48,9 @@
                                 </td>
                                 <td>
                                     <div class="progress" style="height: 20px; width: 80px;">
-                                        <div class="progress-bar {% if result.confidence_score > 0.7 %}bg-danger{% elif result.confidence_score > 0.4 %}bg-warning{% else %}bg-success{% endif %}" 
-                                             style="width: {{ result.confidence_score|floatformat:0 }}%">
-                                            {{ result.confidence_score|floatformat:0 }}%
+                                        <div class="progress-bar {% if result.confidence_score > 70 %}bg-danger{% elif result.confidence_score > 40 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             style="width: {{ result.confidence_score }}%">
+                                            {{ result.confidence_score }}%
                                         </div>
                                     </div>
                                 </td>
