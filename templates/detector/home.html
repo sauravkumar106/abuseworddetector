@@ -1,0 +1,103 @@
+{% extends 'detector/base.html' %}
+
+{% block title %}Analyze Content - Content Moderator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-search"></i> Analyze Text for Offensive Content</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_text" class="form-label">{{ form.text.label }}</label>
+                        {{ form.text }}
+                        {% if form.text.errors %}
+                            <div class="text-danger small">{{ form.text.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-shield-check"></i> Analyze Content
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if result %}
+        <div class="card">
+            <div class="card-header severity-{{ result.severity }}">
+                <h5 class="mb-0">
+                    {% if result.is_offensive %}
+                        <i class="bi bi-exclamation-triangle-fill"></i> Offensive Content Detected
+                    {% else %}
+                        <i class="bi bi-check-circle-fill"></i> Content Appears Safe
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 rounded severity-{{ result.severity }}">
+                            <h6 class="text-uppercase mb-1">Severity</h6>
+                            <h3 class="mb-0">{{ result.severity|title }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 rounded bg-light">
+                            <h6 class="text-uppercase mb-1">Confidence</h6>
+                            <h3 class="mb-0">{{ result.confidence_score|floatformat:0 }}%</h3>
+                            <div class="progress confidence-bar mt-2">
+                                <div class="progress-bar {% if result.confidence_score > 70 %}bg-danger{% elif result.confidence_score > 40 %}bg-warning{% else %}bg-success{% endif %}" 
+                                     style="width: {{ result.confidence_score }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 rounded bg-light">
+                            <h6 class="text-uppercase mb-1">Status</h6>
+                            <h3 class="mb-0">
+                                {% if result.is_offensive %}
+                                    <span class="text-danger">Flagged</span>
+                                {% else %}
+                                    <span class="text-success">Clean</span>
+                                {% endif %}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+
+                {% if result.categories %}
+                <div class="mb-3">
+                    <h6><i class="bi bi-tags"></i> Detected Categories:</h6>
+                    <div>
+                        {% for category in result.categories %}
+                            <span class="badge bg-danger badge-category">{{ category|title }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if result.flagged_terms %}
+                <div class="mb-3">
+                    <h6><i class="bi bi-flag"></i> Flagged Terms:</h6>
+                    <div>
+                        {% for term in result.flagged_terms %}
+                            <span class="flagged-term">{{ term }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6><i class="bi bi-file-text"></i> Analyzed Text:</h6>
+                    <p class="mb-0 text-muted">{{ result.text }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
