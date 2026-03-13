@@ -5,99 +5,516 @@
 {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
+
+        <!-- Analysis Form Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
                 <h5 class="mb-0"><i class="bi bi-search"></i> Analyze Text for Offensive Content</h5>
+                <span class="ai-badge"><i class="bi bi-cpu"></i> BERT AI</span>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form method="post" id="analyzeForm">
                     {% csrf_token %}
+
+                    <!-- Mode Selector -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold mb-2"><i class="bi bi-person-gear"></i> Detection
+                            Mode</label>
+                        <div class="mode-selector d-flex gap-3">
+                            <label
+                                class="mode-card flex-fill text-center {% if not result or result.mode == 'adult' %}mode-active-adult{% endif %}"
+                                for="mode_adult">
+                                <input class="mode-radio visually-hidden" type="radio" name="mode" id="mode_adult"
+                                    value="adult" {% if not result or result.mode == 'adult' %}checked{% endif %}>
+                                <div class="mode-icon">🔞</div>
+                                <div class="mode-label">Adult Mode</div>
+                                <div class="mode-desc">Flags only extreme / severe content</div>
+                            </label>
+                            <label
+                                class="mode-card flex-fill text-center {% if result and result.mode == 'kid' %}mode-active-kid{% endif %}"
+                                for="mode_kid">
+                                <input class="mode-radio visually-hidden" type="radio" name="mode" id="mode_kid"
+                                    value="kid" {% if result and result.mode == 'kid' %}checked{% endif %}>
+                                <div class="mode-icon">🧒</div>
+                                <div class="mode-label">Kid Mode</div>
+                                <div class="mode-desc">Flags even mild words & bad emojis</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Text Area -->
                     <div class="mb-3">
-                        <label for="id_text" class="form-label">{{ form.text.label }}</label>
+                        <label for="id_text" class="form-label fw-semibold">{{ form.text.label }}</label>
                         {{ form.text }}
                         {% if form.text.errors %}
-                            <div class="text-danger small">{{ form.text.errors }}</div>
+                        <div class="text-danger small">{{ form.text.errors }}</div>
                         {% endif %}
+                        <div class="form-text">Supports text with emojis — bad emojis are detected automatically!</div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-100">
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100" id="analyzeBtn">
                         <i class="bi bi-shield-check"></i> Analyze Content
                     </button>
                 </form>
             </div>
         </div>
 
+        <!-- Loading Spinner (shown on submit) -->
+        <div id="loadingOverlay" class="loading-overlay d-none">
+            <div class="loading-box">
+                <div class="spinner-border text-primary mb-3" role="status" style="width:3rem;height:3rem;"></div>
+                <div class="fw-semibold text-dark">AI is analyzing…</div>
+                <div class="text-muted small mt-1">BERT model processing your text</div>
+            </div>
+        </div>
+
         {% if result %}
-        <div class="card">
-            <div class="card-header severity-{{ result.severity }}">
+        <!-- Result Card -->
+        <div class="card shadow-sm result-card">
+            <div
+                class="card-header severity-{{ result.severity }} d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h5 class="mb-0">
                     {% if result.is_offensive %}
-                        <i class="bi bi-exclamation-triangle-fill"></i> Offensive Content Detected
+                    <i class="bi bi-exclamation-triangle-fill"></i> Offensive Content Detected
                     {% else %}
-                        <i class="bi bi-check-circle-fill"></i> Content Appears Safe
+                    <i class="bi bi-check-circle-fill"></i> Content Appears Safe
                     {% endif %}
                 </h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <span
+                        class="mode-badge {% if result.mode == 'kid' %}mode-badge-kid{% else %}mode-badge-adult{% endif %}">
+                        {% if result.mode == 'kid' %}🧒 Kid Mode{% else %}🔞 Adult Mode{% endif %}
+                    </span>
+                    {% if result.engine == 'detoxify-bert' %}
+                    <span class="engine-badge"><i class="bi bi-cpu-fill"></i> BERT AI</span>
+                    {% else %}
+                    <span class="engine-badge engine-fallback"><i class="bi bi-braces"></i> Regex</span>
+                    {% endif %}
+                </div>
             </div>
+
             <div class="card-body">
-                <div class="row mb-3">
+                <!-- Stats Row -->
+                <div class="row mb-4 g-3">
                     <div class="col-md-4">
-                        <div class="text-center p-3 rounded severity-{{ result.severity }}">
-                            <h6 class="text-uppercase mb-1">Severity</h6>
-                            <h3 class="mb-0">{{ result.severity|title }}</h3>
+                        <div class="stat-box text-center severity-{{ result.severity }}">
+                            <div class="stat-label">SEVERITY</div>
+                            <div class="stat-value">{{ result.severity|title }}</div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="text-center p-3 rounded bg-light">
-                            <h6 class="text-uppercase mb-1">Confidence</h6>
-                            <h3 class="mb-0">{{ result.confidence_score|floatformat:0 }}%</h3>
+                        <div class="stat-box text-center bg-light">
+                            <div class="stat-label">CONFIDENCE</div>
+                            <div class="stat-value">{{ result.confidence_score|floatformat:0 }}%</div>
                             <div class="progress confidence-bar mt-2">
-                                <div class="progress-bar {% if result.confidence_score > 70 %}bg-danger{% elif result.confidence_score > 40 %}bg-warning{% else %}bg-success{% endif %}" 
-                                     style="width: {{ result.confidence_score }}%"></div>
+                                <div class="progress-bar {% if result.confidence_score > 70 %}bg-danger{% elif result.confidence_score > 40 %}bg-warning{% else %}bg-success{% endif %}"
+                                    style="width: {{ result.confidence_score }}%"></div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="text-center p-3 rounded bg-light">
-                            <h6 class="text-uppercase mb-1">Status</h6>
-                            <h3 class="mb-0">
+                        <div class="stat-box text-center bg-light">
+                            <div class="stat-label">STATUS</div>
+                            <div class="stat-value">
                                 {% if result.is_offensive %}
-                                    <span class="text-danger">Flagged</span>
+                                <span class="text-danger">⚠️ Flagged</span>
                                 {% else %}
-                                    <span class="text-success">Clean</span>
+                                <span class="text-success">✅ Clean</span>
                                 {% endif %}
-                            </h3>
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- ML Score Breakdown -->
+                {% if result.ml_scores %}
+                <div class="detection-section mb-3">
+                    <h6 class="mb-3"><i class="bi bi-bar-chart-fill"></i> AI Toxicity Scores <span
+                            class="text-muted small fw-normal">(BERT model)</span></h6>
+                    <div class="ml-scores-grid">
+                        {% for s in result.ml_scores %}
+                        <div class="ml-score-row">
+                            <div class="ml-score-label">{{ s.label }}</div>
+                            <div class="ml-score-bar-wrap">
+                                <div class="ml-score-bar
+                                    {% if s.pct > 70 %}bar-danger
+                                    {% elif s.pct > 40 %}bar-warning
+                                    {% elif s.pct > 15 %}bar-moderate
+                                    {% else %}bar-safe{% endif %}"
+                                    style="width: {{ s.pct }}%; min-width: {% if s.pct > 0 %}4px{% else %}0{% endif %};">
+                                </div>
+                            </div>
+                            <div class="ml-score-pct
+                                {% if s.pct > 70 %}text-danger
+                                {% elif s.pct > 40 %}text-warning
+                                {% elif s.pct > 15 %}text-secondary
+                                {% else %}text-success{% endif %}">
+                                {{ s.pct }}%
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Emoji Detections -->
+                {% if result.emoji_detections %}
+                <div class="detection-section mb-3">
+                    <h6><i class="bi bi-emoji-frown"></i> Bad Emojis Detected:</h6>
+                    <div class="emoji-grid mt-2">
+                        {% for det in result.emoji_detections %}
+                        <div class="emoji-chip emoji-{{ det.category }}">
+                            <span class="emoji-char">{{ det.emoji }}</span>
+                            <span class="emoji-cat">{{ det.category|title }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Categories -->
                 {% if result.categories %}
-                <div class="mb-3">
+                <div class="detection-section mb-3">
                     <h6><i class="bi bi-tags"></i> Detected Categories:</h6>
-                    <div>
+                    <div class="mt-1">
                         {% for category in result.categories %}
-                            <span class="badge bg-danger badge-category">{{ category|title }}</span>
+                        <span class="badge bg-danger badge-category">{{ category }}</span>
                         {% endfor %}
                     </div>
                 </div>
                 {% endif %}
 
+                <!-- Flagged Terms (regex fallback only) -->
                 {% if result.flagged_terms %}
-                <div class="mb-3">
+                <div class="detection-section mb-3">
                     <h6><i class="bi bi-flag"></i> Flagged Terms:</h6>
-                    <div>
+                    <div class="mt-1">
                         {% for term in result.flagged_terms %}
-                            <span class="flagged-term">{{ term }}</span>
+                        <span class="flagged-term">{{ term }}</span>
                         {% endfor %}
                     </div>
                 </div>
                 {% endif %}
 
+                <!-- Analyzed Text -->
                 <div class="mt-3 p-3 bg-light rounded">
                     <h6><i class="bi bi-file-text"></i> Analyzed Text:</h6>
                     <p class="mb-0 text-muted">{{ result.text }}</p>
+                </div>
+
+                <!-- Mode Explanation -->
+                <div
+                    class="mode-info mt-3 p-3 rounded {% if result.mode == 'kid' %}mode-info-kid{% else %}mode-info-adult{% endif %}">
+                    {% if result.mode == 'kid' %}
+                    <i class="bi bi-shield-fill-check"></i>
+                    <strong>Kid Mode active</strong> — even mild words and inappropriate emojis are flagged to keep
+                    content safe for children.
+                    {% else %}
+                    <i class="bi bi-person-check-fill"></i>
+                    <strong>Adult Mode active</strong> — only extreme or severe content is flagged. Mild/moderate
+                    language passes.
+                    {% endif %}
                 </div>
             </div>
         </div>
         {% endif %}
     </div>
 </div>
+
+<style>
+    /* ── AI Badge ─────────────────────────────────────────────── */
+    .ai-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        letter-spacing: 0.06em;
+    }
+
+    .engine-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: #e7f0ff;
+        color: #1a4fbf;
+        border: 1px solid #bbd0ff;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+    }
+
+    .engine-fallback {
+        background: #fff3cd;
+        color: #856404;
+        border-color: #ffd666;
+    }
+
+    /* ── Mode Cards ─────────────────────────────────────────────── */
+    .mode-card {
+        border: 2px solid #dee2e6;
+        border-radius: 14px;
+        padding: 1.1rem 1rem;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+        background: #fff;
+        user-select: none;
+    }
+
+    .mode-card:hover {
+        border-color: #adb5bd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .mode-icon {
+        font-size: 2rem;
+        line-height: 1;
+        margin-bottom: 0.3rem;
+    }
+
+    .mode-label {
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .mode-desc {
+        font-size: 0.78rem;
+        color: #6c757d;
+        margin-top: 0.2rem;
+    }
+
+    .mode-active-adult {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.18) !important;
+        background: #f0f5ff;
+    }
+
+    .mode-active-kid {
+        border-color: #198754 !important;
+        box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.18) !important;
+        background: #f0fff6;
+    }
+
+    /* ── Mode Badge ─────────────────────────────────────────────── */
+    .mode-badge {
+        font-size: 0.78rem;
+        padding: 0.3rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .mode-badge-kid {
+        background: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .mode-badge-adult {
+        background: #cfe2ff;
+        color: #084298;
+    }
+
+    /* ── Stat Boxes ─────────────────────────────────────────────── */
+    .stat-box {
+        border-radius: 12px;
+        padding: 1rem 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-top: 0.2rem;
+    }
+
+    /* ── Detection Sections ─────────────────────────────────────── */
+    .detection-section {
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    /* ── ML Score Bars ──────────────────────────────────────────── */
+    .ml-scores-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+
+    .ml-score-row {
+        display: grid;
+        grid-template-columns: 100px 1fr 42px;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .ml-score-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #495057;
+        white-space: nowrap;
+    }
+
+    .ml-score-bar-wrap {
+        background: #e9ecef;
+        border-radius: 6px;
+        height: 12px;
+        overflow: hidden;
+    }
+
+    .ml-score-bar {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.6s ease;
+    }
+
+    .bar-danger {
+        background: linear-gradient(90deg, #dc3545, #ff6b7a);
+    }
+
+    .bar-warning {
+        background: linear-gradient(90deg, #fd7e14, #ffc107);
+    }
+
+    .bar-moderate {
+        background: linear-gradient(90deg, #6f42c1, #a67af4);
+    }
+
+    .bar-safe {
+        background: linear-gradient(90deg, #198754, #29b56e);
+    }
+
+    .ml-score-pct {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-align: right;
+    }
+
+    /* ── Emoji Chips ─────────────────────────────────────────────── */
+    .emoji-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .emoji-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border-radius: 20px;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .emoji-sexual {
+        background: #ffe0ef;
+        color: #8b003a;
+        border: 1px solid #ffb6d9;
+    }
+
+    .emoji-violent {
+        background: #ffe5d0;
+        color: #7d2200;
+        border: 1px solid #ffc49a;
+    }
+
+    .emoji-vulgar {
+        background: #fff3cd;
+        color: #664d03;
+        border: 1px solid #ffe083;
+    }
+
+    .emoji-char {
+        font-size: 1.3rem;
+    }
+
+    /* ── Mode Info ─────────────────────────────────────────────── */
+    .mode-info {
+        font-size: 0.88rem;
+        border-radius: 10px;
+    }
+
+    .mode-info-kid {
+        background: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .mode-info-adult {
+        background: #cfe2ff;
+        color: #084298;
+    }
+
+    .result-card {
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .badge-category {
+        font-size: 0.85rem;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .flagged-term {
+        background: #ffc107;
+        color: #212529;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+        display: inline-block;
+        font-family: monospace;
+    }
+
+    .confidence-bar {
+        height: 10px;
+        border-radius: 5px;
+    }
+
+    /* ── Loading Overlay ─────────────────────────────────────────── */
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-box {
+        text-align: center;
+        padding: 2rem 3rem;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+</style>
+
+<script>
+    // Highlight selected mode card live
+    document.querySelectorAll('.mode-radio').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('.mode-card').forEach(function (card) {
+                card.classList.remove('mode-active-kid', 'mode-active-adult');
+            });
+            var label = document.querySelector('label[for="' + this.id + '"]');
+            if (label) label.classList.add(this.value === 'kid' ? 'mode-active-kid' : 'mode-active-adult');
+        });
+    });
+
+    // Show loading spinner on submit
+    document.getElementById('analyzeForm').addEventListener('submit', function () {
+        document.getElementById('loadingOverlay').classList.remove('d-none');
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    });
+</script>
 {% endblock %}
