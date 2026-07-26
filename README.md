@@ -137,9 +137,13 @@ This project is open source. Feel free to use, modify, and distribute it.
  
 ## 👤 Author
  
-**Saurav Kumar**  
+## 👤 Author
+
+**Saurav Kumar**
 GitHub: [@sauravkumar106](https://github.com/sauravkumar106)
+
 ---
-**Pralav Jha**  
+
+**Pralav Jha**
 GitHub: [@Pralav14](https://github.com/pralav14)
  
