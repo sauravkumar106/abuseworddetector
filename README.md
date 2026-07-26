@@ -136,14 +136,11 @@ This project is open source. Feel free to use, modify, and distribute it.
 ---
  
 ## 👤 Author
- 
-## 👤 Author
 
-**Saurav Kumar**
+1. **Saurav Kumar**
 GitHub: [@sauravkumar106](https://github.com/sauravkumar106)
 
----
 
-**Pralav Jha**
+2. **Pralav Jha**
 GitHub: [@Pralav14](https://github.com/pralav14)
  
